@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ar" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>KPI Dashboard – May 2026</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f0f2f5;
+    padding: 20px;
+    color: #1a1a1a;
+  }
+
+  .dashboard {
+    max-width: 1140px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 28px 28px 20px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  }
+
+  /* ── Header ── */
+  .header { border-left: 4px solid #0F6E56; padding-left: 14px; margin-bottom: 18px; }
+  .header .kpi-tag { font-size: 10px; font-weight: 700; color: #0F6E56; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 4px; }
+  .header h1 { font-size: 24px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+  .header .source-line { font-size: 12px; color: #777; }
+
+  hr.divider { border: none; border-top: 1px solid #e4e8ec; margin: 0 0 16px; }
+
+  /* ── Loading / Error ── */
+  .loading-bar {
+    display: flex; align-items: center; gap: 10px;
+    background: #E3F2FD; border: 1px solid #90CAF9;
+    border-radius: 8px; padding: 10px 16px;
+    font-size: 13px; color: #0D47A1; margin-bottom: 14px;
+  }
+  .spinner {
+    width: 18px; height: 18px; border: 3px solid #90CAF9;
+    border-top-color: #1565C0; border-radius: 50%;
+    animation: spin .8s linear infinite; flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-bar {
+    display: none; align-items: center; gap: 10px;
+    background: #FFEBEE; border: 1px solid #EF9A9A;
+    border-radius: 8px; padding: 10px 16px;
+    font-size: 13px; color: #C62828; margin-bottom: 14px;
+  }
+
+  /* ── KPI Grid ── */
+  .kpi-grid, .info-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .kpi-card {
+    border: 1px solid #e4e8ec;
+    border-radius: 8px;
+    padding: 14px 14px 12px;
+    background: #fff;
+    transition: box-shadow .2s;
+  }
+  .kpi-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+  .kpi-card.on-target    { border-top: 3px solid #0F6E56; }
+  .kpi-card.needs-action { border-top: 3px solid #E07B00; }
+  .kpi-card.critical     { border-top: 3px solid #C0392B; }
+  .kpi-card.neutral      { border-top: 3px solid #b0bec5; }
+
+  .card-label {
+    font-size: 10.5px; color: #888; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px;
+  }
+  .card-value {
+    font-size: 28px; font-weight: 700; line-height: 1.1; margin-bottom: 8px;
+    min-height: 34px;
+  }
+  .card-value.green  { color: #0F6E56; }
+  .card-value.red    { color: #C0392B; }
+  .card-value.orange { color: #E07B00; }
+  .card-value.dark   { color: #1a1a1a; }
+  .card-value.big-red { color: #C0392B; font-size: 36px; }
+
+  .card-meta { font-size: 11.5px; line-height: 1.65; }
+  .tag-green  { color: #0F6E56; font-weight: 600; }
+  .tag-red    { color: #C0392B; font-weight: 600; }
+  .tag-orange { color: #E07B00; font-weight: 600; }
+  .tag-gray   { color: #999; }
+
+  .card-subtitle { font-size: 13px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
+  .card-count    { font-size: 22px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+
+  /* ── Status Panel ── */
+  .status-panel {
+    background: #f7f8fa; border: 1px solid #e4e8ec;
+    border-radius: 8px; padding: 16px 18px; margin-bottom: 10px;
+  }
+  .panel-title { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 14px; }
+
+  .status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 170px;
+    gap: 10px;
+  }
+  .stat-box { border-radius: 8px; padding: 16px 12px; text-align: center; }
+  .stat-box.green-bg  { background: #EAF3DE; }
+  .stat-box.orange-bg { background: #FFF3E0; }
+  .stat-box.red-bg    { background: #FCEBEB; }
+  .stat-box.dark-bg   { background: #1A2B2E; }
+
+  .stat-num { font-size: 38px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
+  .stat-num.green  { color: #0F6E56; }
+  .stat-num.orange { color: #E07B00; }
+  .stat-num.red    { color: #C0392B; }
+  .stat-num.white  { color: #fff; font-size: 28px; }
+  .stat-desc       { font-size: 12px; color: #777; }
+  .stat-desc.white { color: rgba(255,255,255,.75); }
+
+  /* ── Ticker ── */
+  .ticker { background: #1A2B2E; border-radius: 8px; padding: 11px 16px; }
+  .ticker p { color: #fff; font-size: 12px; line-height: 1.7; }
+  .ticker p.bold { font-weight: 700; font-size: 13px; }
+
+  /* ── Last updated ── */
+  .last-updated {
+    text-align: left; font-size: 11px; color: #aaa;
+    margin-top: 8px; padding-top: 6px;
+  }
+
+  /* ── Skeleton pulse ── */
+  .skel {
+    display: inline-block; background: #e8ecf0;
+    border-radius: 4px; animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  @media (max-width: 860px) {
+    .kpi-grid, .info-grid { grid-template-columns: repeat(2,1fr); }
+    .status-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 480px) {
+    .kpi-grid, .info-grid { grid-template-columns: 1fr; }
+    .status-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="dashboard">
+
+  <!-- Header -->
+  <div class="header">
+    <p class="kpi-tag">KPI Overview</p>
+    <h1>4 Key Performance Indicators &middot; May 2026</h1>
+    <p class="source-line" id="sourceLine">
+      Source: TFS &mdash; Loading data…
+    </p>
+  </div>
+  <hr class="divider"/>
+
+  <!-- Status bars -->
+  <div class="loading-bar" id="loadingBar">
+    <div class="spinner"></div>
+    <span>جاري سحب البيانات من TFS…</span>
+  </div>
+  <div class="error-bar" id="errorBar">
+    ⚠️ &nbsp;<span id="errorMsg">تعذّر الاتصال بـ TFS. تحقق من الـ PAT أو الشبكة.</span>
+  </div>
+
+  <!-- Row 1: KPI Metric Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card" id="card-defect">
+      <p class="card-label">Defect Leakage</p>
+      <p class="card-value green" id="val-defect"><span class="skel" style="width:70px;height:28px;">&nbsp;</span></p>
+      <p class="card-meta" id="meta-defect"></p>
+    </div>
+    <div class="kpi-card" id="card-reopen">
+      <p class="card-label">Reopen Rate</p>
+      <p class="card-value orange" id="val-reopen"><span class="skel" style="width:70px;height:28px;">&nbsp;</span></p>
+      <p class="card-meta" id="meta-reopen"></p>
+    </div>
+    <div class="kpi-card" id="card-rejected">
+      <p class="card-label">Rejected Bug Rate</p>
+      <p class="card-value green" id="val-rejected"><span class="skel" style="width:70px;height:28px;">&nbsp;</span></p>
+      <p class="card-meta" id="meta-rejected"></p>
+    </div>
+    <div class="kpi-card" id="card-critical">
+      <p class="card-label">Critical/High Bug Rate</p>
+      <p class="card-value red" id="val-critical"><span class="skel" style="width:80px;height:28px;">&nbsp;</span></p>
+      <p class="card-meta" id="meta-critical"></p>
+    </div>
+    <div class="kpi-card neutral" id="card-quality">
+      <p class="card-label">Quality Score</p>
+      <p class="card-value dark" id="val-quality"><span class="skel" style="width:80px;height:28px;">&nbsp;</span></p>
+      <p class="card-meta" id="meta-quality"></p>
+    </div>
+  </div>
+
+  <!-- Row 2: Info Cards -->
+  <div class="info-grid">
+    <div class="kpi-card neutral">
+      <p class="card-label">Total Bugs</p>
+      <p class="card-value dark" id="val-total"><span class="skel" style="width:60px;height:28px;">&nbsp;</span></p>
+      <p class="card-meta" id="meta-total"></p>
+    </div>
+    <div class="kpi-card needs-action">
+      <p class="card-label">Test Cases</p>
+      <p class="card-value dark" id="val-tc"><span class="skel" style="width:60px;height:28px;">&nbsp;</span></p>
+      <p class="card-meta"><span class="tag-orange">TFS Executed</span></p>
+    </div>
+    <div class="kpi-card needs-action">
+      <p class="card-label">Change Requests</p>
+      <p class="card-subtitle">Change Requests</p>
+      <p class="card-count" id="val-cr"><span class="skel" style="width:40px;height:22px;">&nbsp;</span></p>
+      <p class="card-meta"><span class="tag-green">Sprint 05-2026</span></p>
+    </div>
+    <div class="kpi-card critical">
+      <p class="card-label">Technical Production Bugs</p>
+      <p class="card-value big-red" id="val-prod"><span class="skel" style="width:50px;height:34px;">&nbsp;</span></p>
+      <p class="card-meta" id="meta-prod"></p>
+    </div>
+    <div class="kpi-card on-target">
+      <p class="card-label">Closed Bugs</p>
+      <p class="card-value dark" id="val-closed"><span class="skel" style="width:60px;height:28px;">&nbsp;</span></p>
+      <p class="card-meta" id="meta-closed"></p>
+    </div>
+  </div>
+
+  <!-- Overall Status -->
+  <div class="status-panel">
+    <p class="panel-title">Overall Status &mdash; May 2026</p>
+    <div class="status-grid">
+      <div class="stat-box green-bg">
+        <div class="stat-num green" id="stat-ontarget">—</div>
+        <div class="stat-desc">Metrics On Target</div>
+      </div>
+      <div class="stat-box orange-bg">
+        <div class="stat-num orange" id="stat-attention">—</div>
+        <div class="stat-desc">Need Attention</div>
+      </div>
+      <div class="stat-box red-bg">
+        <div class="stat-num red" id="stat-critical">—</div>
+        <div class="stat-desc">Critical</div>
+      </div>
+      <div class="stat-box dark-bg">
+        <div class="stat-num white" id="stat-score">— / 100</div>
+        <div class="stat-desc white">Overall Benchmark Score</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ticker -->
+  <div class="ticker">
+    <p class="bold" id="ticker-main">&#9641; Loading production bugs data…</p>
+    <p id="ticker-sub" style="opacity:.8;"></p>
+  </div>
+
+  <p class="last-updated" id="lastUpdated"></p>
+</div>
+
+<script>
+// ╔══════════════════════════════════════════════╗
+// ║         ضع إعداداتك هنا فقط                 ║
+// ╚══════════════════════════════════════════════╝
+const CONFIG = {
+  tfsUrl:      "https://tfs.momra.gov.sa/tfs/BaladyCollection",
+  project:     "ConstructionLicenses",
+  pat:         "xfhnozflitywmm2g4eazjyrb6o7ytqhezq5aupxdhwq6me6jibmq",   // ← PAT الجديد هنا فقط
+
+  // Query IDs بالترتيب
+  queries: {
+    totalBugs:        "e74022ff-1fa2-4f61-bd70-c7193d4fcfc6",
+    closedBugs:       "36b031ca-cc92-41ac-ac3e-c525b7c93bc2",
+    criticalHighBugs: "574df4f4-fc3f-41f6-ba33-6c87eae57391",
+    reopenBugs:       "50c81564-8420-4497-8231-cc7bb99482c2",
+    testCases:        "50572271-2629-4cc6-bbeb-9d55b9d75c00",
+    changeRequests:   "3e471870-3e8f-46be-b57d-656a1103ef6c",
+    productionBugs:   "3f2e5f81-1843-4a04-b61b-94850c766d76"
+  },
+
+  // أهداف الـ KPIs
+  targets: {
+    defectLeakage:    5,    // ≤ 5%
+    reopenRate:       5,    // ≤ 5%
+    rejectedBugRate:  5,    // ≤ 5%
+    criticalHighRate: 20,   // ≤ 20%
+  },
+
+  // تحديث تلقائي كل 5 دقائق
+  refreshMinutes: 5
+};
+
+// ── Helpers ──────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString('en-US');
+const pct = (a,b) => b ? ((a/b)*100).toFixed(2)+"%" : "N/A";
+
+function authHeader() {
+  return "Basic " + btoa(":" + CONFIG.pat);
+}
+
+async function runQuery(queryId) {
+  const url = `${CONFIG.tfsUrl}/${CONFIG.project}/_apis/wit/wiql/${queryId}?api-version=5.0`;
+  const res = await fetch(url, {
+    headers: { "Authorization": authHeader(), "Content-Type": "application/json" }
+  });
+  if (!res.ok) throw new Error(`Query ${queryId} failed: ${res.status} ${res.statusText}`);
+  const data = await res.json();
+  return (data.workItems || []).length;
+}
+
+// ── Status helpers ────────────────────────────────
+function statusTag(val, target, higherIsBad = true) {
+  const over = higherIsBad ? val > target : val < target;
+  if (over) return `<span class="tag-red">Target: ≤ ${target}%</span>`;
+  return `<span class="tag-green">✓ On Target</span><br><span class="tag-gray">Target: ≤ ${target}%</span>`;
+}
+function cardClass(val, target, higherIsBad = true) {
+  return (higherIsBad ? val > target : val < target) ? "critical" : "on-target";
+}
+
+// ── Quality Score (simple weighted formula) ───────
+function calcQualityScore(defectPct, reopenPct, criticalPct, rejectedPct) {
+  // penalise each KPI above target
+  let score = 100;
+  if (defectPct    > CONFIG.targets.defectLeakage)    score -= Math.min((defectPct    - CONFIG.targets.defectLeakage)    * 2, 15);
+  if (reopenPct    > CONFIG.targets.reopenRate)        score -= Math.min((reopenPct    - CONFIG.targets.reopenRate)        * 2, 15);
+  if (criticalPct  > CONFIG.targets.criticalHighRate)  score -= Math.min((criticalPct  - CONFIG.targets.criticalHighRate)  * 0.8, 20);
+  if (rejectedPct  > CONFIG.targets.rejectedBugRate)   score -= Math.min((rejectedPct  - CONFIG.targets.rejectedBugRate)   * 2, 10);
+  return Math.max(score, 0).toFixed(1);
+}
+
+// ── Main render ───────────────────────────────────
+async function loadDashboard() {
+  $("loadingBar").style.display = "flex";
+  $("errorBar").style.display   = "none";
+
+  try {
+    // Fetch all queries in parallel
+    const [total, closed, critHigh, reopen, tc, cr, prod] = await Promise.all([
+      runQuery(CONFIG.queries.totalBugs),
+      runQuery(CONFIG.queries.closedBugs),
+      runQuery(CONFIG.queries.criticalHighBugs),
+      runQuery(CONFIG.queries.reopenBugs),
+      runQuery(CONFIG.queries.testCases),
+      runQuery(CONFIG.queries.changeRequests),
+      runQuery(CONFIG.queries.productionBugs)
+    ]);
+
+    // ── Derived KPIs ──
+    const defectLeakagePct   = total  ? +((reopen  / total)   * 100).toFixed(2) : 0;
+    const reopenRatePct      = total  ? +((reopen  / total)   * 100).toFixed(2) : 0;
+    const rejectedPct        = total  ? +((0       / total)   * 100).toFixed(2) : 0; // adjust if you have rejected query
+    const criticalPct        = total  ? +((critHigh/ total)   * 100).toFixed(2) : 0;
+    const resolutionRatePct  = total  ? +((closed  / total)   * 100).toFixed(1) : 0;
+    const qualityScore       = calcQualityScore(defectLeakagePct, reopenRatePct, criticalPct, rejectedPct);
+
+    // ── Source line ──
+    $("sourceLine").textContent =
+      `Source: TFS — Total Bugs: ${fmt(total)} · Closed: ${fmt(closed)} · Test Cases: ${fmt(tc)} · CRs: ${fmt(cr)}`;
+
+    // ── Card 1: Defect Leakage ──
+    const dClass = cardClass(defectLeakagePct, CONFIG.targets.defectLeakage);
+    $("card-defect").className = `kpi-card ${dClass}`;
+    $("val-defect").className  = `card-value ${dClass === "on-target" ? "green" : "red"}`;
+    $("val-defect").textContent = defectLeakagePct + "%";
+    $("meta-defect").innerHTML  = statusTag(defectLeakagePct, CONFIG.targets.defectLeakage);
+
+    // ── Card 2: Reopen Rate ──
+    const rClass = cardClass(reopenRatePct, CONFIG.targets.reopenRate);
+    $("card-reopen").className = `kpi-card ${rClass === "on-target" ? "on-target" : "needs-action"}`;
+    $("val-reopen").className  = `card-value ${rClass === "on-target" ? "green" : "orange"}`;
+    $("val-reopen").textContent = reopenRatePct + "%";
+    $("meta-reopen").innerHTML  = reopenRatePct > CONFIG.targets.reopenRate
+      ? `<span class="tag-orange">⚠ Needs Action</span><br><span class="tag-gray">Target: ≤ ${CONFIG.targets.reopenRate}%</span>`
+      : `<span class="tag-green">✓ On Target</span><br><span class="tag-gray">Target: ≤ ${CONFIG.targets.reopenRate}%</span>`;
+
+    // ── Card 3: Rejected Bug Rate ──
+    $("card-rejected").className = "kpi-card on-target";
+    $("val-rejected").className  = "card-value green";
+    $("val-rejected").textContent = rejectedPct + "%";
+    $("meta-rejected").innerHTML  = `<span class="tag-green">✓ On Target</span><br><span class="tag-gray">Target: ≤ ${CONFIG.targets.rejectedBugRate}%</span>`;
+
+    // ── Card 4: Critical/High Bug Rate ──
+    const cClass = cardClass(criticalPct, CONFIG.targets.criticalHighRate);
+    $("card-critical").className = `kpi-card ${cClass}`;
+    $("val-critical").className  = `card-value ${cClass === "on-target" ? "green" : "red"}`;
+    $("val-critical").textContent = criticalPct + "%";
+    $("meta-critical").innerHTML  = `<span class="tag-${cClass === "on-target" ? "green" : "red"}">Target: ≤ ${CONFIG.targets.criticalHighRate}%</span>`;
+
+    // ── Card 5: Quality Score ──
+    $("val-quality").textContent = qualityScore + "/100";
+    $("meta-quality").innerHTML  = `<span class="tag-gray">Combined: ${qualityScore}</span>`;
+
+    // ── Row 2 ──
+    $("val-total").textContent  = fmt(total);
+    $("meta-total").innerHTML   = `<span class="tag-green">Bugs this sprint</span>`;
+    $("val-tc").textContent     = fmt(tc);
+    $("val-cr").textContent     = fmt(cr);
+    $("val-prod").textContent   = fmt(prod);
+    $("meta-prod").innerHTML    = `<span class="tag-orange">Production impact</span>`;
+    $("val-closed").textContent = fmt(closed);
+    $("meta-closed").innerHTML  = `<span class="tag-green">Resolution Rate ${resolutionRatePct}%</span>`;
+
+    // ── Overall Status counts ──
+    let onTarget = 0, attention = 0, critical = 0;
+    [
+      { v: defectLeakagePct, t: CONFIG.targets.defectLeakage },
+      { v: reopenRatePct,    t: CONFIG.targets.reopenRate    },
+      { v: rejectedPct,      t: CONFIG.targets.rejectedBugRate },
+      { v: criticalPct,      t: CONFIG.targets.criticalHighRate }
+    ].forEach(({v, t}) => {
+      if (v <= t) onTarget++;
+      else if (v <= t * 1.5) attention++;
+      else critical++;
+    });
+
+    $("stat-ontarget").textContent = onTarget;
+    $("stat-attention").textContent = attention;
+    $("stat-critical").textContent  = critical;
+    $("stat-score").textContent     = qualityScore + " / 100";
+
+    // ── Ticker ──
+    $("ticker-main").innerHTML =
+      `&#9641; Production Bugs — ${fmt(prod)} &nbsp;|&nbsp; Total: ${fmt(total)} &nbsp;|&nbsp; Closed: ${fmt(closed)} &nbsp;|&nbsp; CRs: ${fmt(cr)} &nbsp;|&nbsp; Test Cases: ${fmt(tc)}`;
+    $("ticker-sub").textContent =
+      `Critical/High: ${fmt(critHigh)} (${criticalPct}%) · Reopen: ${fmt(reopen)} · Resolution Rate: ${resolutionRatePct}%`;
+
+    // ── Last updated ──
+    $("lastUpdated").textContent = "Last updated: " + new Date().toLocaleString('en-GB');
+
+    $("loadingBar").style.display = "none";
+
+  } catch (err) {
+    $("loadingBar").style.display = "none";
+    $("errorBar").style.display   = "flex";
+    $("errorMsg").textContent     = err.message || "تعذّر الاتصال بـ TFS. تحقق من الـ PAT أو الشبكة.";
+    console.error(err);
+  }
+}
+
+// ── Auto-refresh ──────────────────────────────────
+loadDashboard();
+setInterval(loadDashboard, CONFIG.refreshMinutes * 60 * 1000);
+</script>
+</body>
+</html>
